@@ -1,0 +1,125 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <Servo.h>
+
+// Initialize LCD (Address 0x27 is common, change to 0x3F if needed)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+Servo indicatorServo;
+
+// Pin Definitions
+const int tokenBtn = 2;
+const int nextBtn = 3;
+const int priorityBtn = 4;
+const int buzzer = 5;
+const int servoPin = 6;
+const int statusLed = 7;
+
+// Variables
+int currentToken = 0;   // The token being served
+int lastIssuedToken = 0; // The latest token generated
+bool priorityMode = false;
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Pin Modes
+  pinMode(tokenBtn, INPUT_PULLUP);
+  pinMode(nextBtn, INPUT_PULLUP);
+  pinMode(priorityBtn, INPUT_PULLUP);
+  pinMode(buzzer, OUTPUT);
+  pinMode(statusLed, OUTPUT);
+  
+  // Initialize Hardware
+  lcd.init();
+  lcd.backlight();
+  indicatorServo.attach(servoPin);
+  indicatorServo.write(0); // Reset position
+  
+  // Welcome Message
+  lcd.setCursor(0, 0);
+  lcd.print("Smart Queue Sys");
+  lcd.setCursor(0, 1);
+  lcd.print("System Ready");
+  delay(2000);
+  updateDisplay();
+}
+
+void loop() {
+  [span_2](start_span)// 1. Generate New Token[span_2](end_span)
+  if (digitalRead(tokenBtn) == LOW) {
+    lastIssuedToken++;
+    generateTokenEffect();
+    delay(300); // Debounce
+  }
+
+  [span_3](start_span)// 2. Call Next Customer[span_3](end_span)
+  if (digitalRead(nextBtn) == LOW) {
+    if (currentToken < lastIssuedToken) {
+      currentToken++;
+      callNextEffect();
+    } else {
+      lcd.setCursor(0, 1);
+      lcd.print("No More Tokens ");
+      delay(1000);
+      updateDisplay();
+    }
+    delay(300);
+  }
+
+  [span_4](start_span)// 3. Priority Calling[span_4](end_span)
+  if (digitalRead(priorityBtn) == LOW) {
+    priorityMode = true;
+    lcd.clear();
+    lcd.print("PRIORITY CALL!");
+    digitalWrite(statusLed, HIGH);
+    tone(buzzer, 1500, 500);
+    delay(1000);
+    digitalWrite(statusLed, LOW);
+    updateDisplay();
+  }
+}
+
+void updateDisplay() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Serving: ");
+  lcd.print(currentToken);
+  lcd.setCursor(0, 1);
+  lcd.print("Wait: ");
+  lcd.print(lastIssuedToken - currentToken);
+  
+  [span_5](start_span)// Serial Monitor Output[span_5](end_span)
+  Serial.print("Current Serving: ");
+  Serial.println(currentToken);
+}
+
+void generateTokenEffect() {
+  digitalWrite(statusLed, HIGH);
+  lcd.clear();
+  lcd.print("Token Issued!");
+  lcd.setCursor(0, 1);
+  lcd.print("Your No: ");
+  lcd.print(lastIssuedToken);
+  tone(buzzer, 1000, 100);
+  delay(1000);
+  digitalWrite(statusLed, LOW);
+  updateDisplay();
+}
+
+void callNextEffect() {
+  [span_6](start_span)[span_7](start_span)// Sound and Visual Indicator[span_6](end_span)[span_7](end_span)
+  tone(buzzer, 800, 500);
+  indicatorServo.write(90); // Move servo for visual cue
+  updateDisplay();
+  
+  // Blink LED
+  for(int i=0; i<3; i++) {
+    digitalWrite(statusLed, HIGH);
+    delay(200);
+    digitalWrite(statusLed, LOW);
+    delay(200);
+  }
+  
+  delay(500);
+  indicatorServo.write(0); // Reset servo
+}
